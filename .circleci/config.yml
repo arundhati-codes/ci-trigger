@@ -1,0 +1,39 @@
+version: 2.1
+
+executors:
+  default:
+    docker:
+      - image: cimg/python:3.9  # Python image for the AWS Batch script
+
+    environment:
+      AWS_ACCESS_KEY_ID: << pipeline.parameters.AWS_ACCESS_KEY_ID >>
+      AWS_SECRET_ACCESS_KEY: << pipeline.parameters.AWS_SECRET_ACCESS_KEY >>
+      AWS_REGION: << pipeline.parameters.AWS_REGION >>
+
+jobs:
+  process-queue:
+    executor: default
+    steps:
+      - checkout
+      - run:
+          name: Install AWS CLI and Dependencies
+          command: |
+            pip install --upgrade pip
+            pip install awscli pandas boto3
+      - run:
+          name: Process Queue and Submit AWS Batch Jobs
+          command: python3 process_queue.py
+      - run:
+          name: Commit Updated Queue File
+          command: |
+            git config --global user.email "bot@circleci.com"
+            git config --global user.name "CircleCI Bot"
+            git add queue.csv
+            git commit -m "Update queue.csv with submitted status [ci skip]"
+            git push origin main  # Push changes back to the repo
+
+workflows:
+  version: 2.1
+  trigger-workflow:
+    jobs:
+      - process-queue
